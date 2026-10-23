@@ -232,6 +232,7 @@ class Uploader {
     <td class="cell-eta" id="uploadEta${idx}"></td>
   </tr>`);
     $uploadersTable.classList.remove("hidden");
+    $uploadersTable.parentElement?.classList.remove("hidden");
     $emptyFolder.classList.add("hidden");
     this.$status = document.getElementById(`uploadStatus${idx}`);
     this.$percent = document.getElementById(`uploadPercent${idx}`);
@@ -436,6 +437,64 @@ function addBreadcrumb(href, uri_prefix) {
   }
 }
 
+function setupViewToggle() {
+  const $seg = document.querySelector(".segmented");
+  if (!$seg) return;
+  $seg.classList.remove("hidden");
+  let view = "list";
+  try { view = localStorage.getItem("dufs-view") || "list"; } catch (e) {}
+  if (view !== "grid") view = "list";
+  const apply = next => {
+    document.body.classList.toggle("view-grid", next === "grid");
+    document.body.classList.toggle("view-list", next !== "grid");
+    $seg.querySelectorAll(".seg-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.view === next);
+    });
+    try { localStorage.setItem("dufs-view", next); } catch (e) {}
+  };
+  $seg.querySelectorAll(".seg-btn").forEach(btn => {
+    btn.addEventListener("click", () => apply(btn.dataset.view));
+  });
+  apply(view);
+}
+
+function setupKeyboard() {
+  document.addEventListener("keydown", e => {
+    if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    const $search = document.getElementById("search");
+    if (!$search) return;
+    e.preventDefault();
+    $search.focus();
+    $search.select();
+  });
+}
+
+function setupDropHint() {
+  if (!DATA.allow_upload) return;
+  let depth = 0;
+  document.addEventListener("dragenter", e => {
+    if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+    depth++;
+    document.body.classList.add("dragging");
+  });
+  document.addEventListener("dragover", e => {
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files")) {
+      e.preventDefault();
+      document.body.classList.add("dragging");
+    }
+  });
+  document.addEventListener("dragleave", () => {
+    depth = Math.max(0, depth - 1);
+    if (depth === 0) document.body.classList.remove("dragging");
+  });
+  document.addEventListener("drop", () => {
+    depth = 0;
+    document.body.classList.remove("dragging");
+  });
+}
+
 async function setupIndexPage() {
   if (DATA.allow_archive) {
     const $download = document.querySelector(".download");
@@ -462,6 +521,10 @@ async function setupIndexPage() {
 
   renderPathsTableHead();
   renderPathsTableBody();
+  setupRail();
+  setupViewToggle();
+  setupKeyboard();
+  setupDropHint();
 
   if (DATA.user) {
     setupDownloadWithToken();
@@ -519,27 +582,8 @@ function renderPathsTableBody() {
     const len = DATA.paths.length;
     if (len > 0) {
       $pathsTable.classList.remove("hidden");
-      const $listSummary = document.querySelector(".list-summary");
-      if ($listSummary) {
-        const dirCount = DATA.paths.filter(p => p.path_type.endsWith("Dir")).length;
-        const fileCount = len - dirCount;
-        const totalSize = DATA.paths
-          .filter(p => !p.path_type.endsWith("Dir"))
-          .reduce((sum, p) => sum + (p.size || 0), 0);
-        const chips = [];
-        if (dirCount) {
-          chips.push(`<div class="stat"><span class="stat-icon stat-folder">${ICONS.dir}</span><span class="stat-body"><span class="stat-label">文件夹</span><span class="stat-value">${dirCount}</span></span></div>`);
-        }
-        if (fileCount) {
-          chips.push(`<div class="stat"><span class="stat-icon stat-file">${ICONS.file}</span><span class="stat-body"><span class="stat-label">文件</span><span class="stat-value">${fileCount}</span></span></div>`);
-        }
-        if (totalSize > 0) {
-          const [value, unit] = formatFileSize(totalSize);
-          chips.push(`<div class="stat"><span class="stat-icon stat-size"><svg viewBox="0 0 16 16"><path d="M8 2.5c2.5 0 4.5 1 4.5 2.25S10.5 7 8 7 3.5 6 3.5 4.75 5.5 2.5 8 2.5zM3.5 6.4c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 9 9.9 9.4 8 9.4s-3.6-.4-4.5-1.1V6.4zm0 3c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 12 9.9 12.4 8 12.4s-3.6-.4-4.5-1.1V9.4z"/></svg></span><span class="stat-body"><span class="stat-label">总大小</span><span class="stat-value">${value}<small>${unit}</small></span></span></div>`);
-        }
-        $listSummary.innerHTML = chips.join("");
-        $listSummary.classList.remove("hidden");
-      }
+      $pathsTable.parentElement?.classList.remove("hidden");
+
     }
     // Show an action column when it is available for the current directory or
     // at least one entry. Rows without permission render the action disabled.
@@ -554,6 +598,7 @@ function renderPathsTableBody() {
   } else {
     $emptyFolder.textContent = DIR_EMPTY_NOTE;
     $emptyFolder.classList.remove("hidden");
+    $pathsTable.parentElement?.classList.add("hidden");
   }
 }
 
@@ -588,69 +633,53 @@ function deniedReason(file, action) {
  * @param {boolean} showMove
  * @param {boolean} showDelete
  */
-function addPath(file, index, showMove, showDelete) {
-  const encodedName = encodedStr(file.name);
+function buildActions(file, index, showMove, showDelete, withIds) {
+  const isDir = file.path_type.endsWith("Dir");
   let url = newUrl(file.name);
-  let actionDelete = "";
+  if (isDir) url += "/";
   let actionDownload = "";
   let actionMove = "";
   let actionEdit = "";
+  let actionDelete = "";
   let actionView = "";
-  let isDir = file.path_type.endsWith("Dir");
   if (isDir) {
-    url += "/";
     if (DATA.allow_archive) {
-      actionDownload = `
-      <div class="action-btn">
-        <a class="dlwt" href="${url}?zip" title="下载文件夹（ZIP 压缩包）" download>${ICONS.download}</a>
-      </div>`;
+      actionDownload = `<div class="action-btn"><a class="dlwt" href="${url}?zip" title="下载文件夹（ZIP 压缩包）" download>${ICONS.download}</a></div>`;
     }
   } else {
-    actionDownload = `
-    <div class="action-btn" >
-      <a class="dlwt" href="${url}" title="下载文件" download>${ICONS.download}</a>
-    </div>`;
+    actionDownload = `<div class="action-btn"><a class="dlwt" href="${url}" title="下载文件" download>${ICONS.download}</a></div>`;
   }
   const canMove = file.allow_upload && file.allow_delete;
   const canEdit = !isDir && canMove;
   if (showMove) {
-    if (canMove) {
-      actionMove = `<div onclick="movePath(${index})" class="action-btn" id="moveBtn${index}" title="移动 / 重命名">${ICONS.move}</div>`;
-    } else {
-      actionMove = disabledAction(ICONS.move, `无法移动：${deniedReason(file, "move")}`);
-    }
+    actionMove = canMove
+      ? `<div onclick="movePath(${index})" class="action-btn"${withIds ? ` id="moveBtn${index}"` : ""} title="移动 / 重命名">${ICONS.move}</div>`
+      : disabledAction(ICONS.move, `无法移动：${deniedReason(file, "move")}`);
     if (!isDir) {
-      if (canEdit) {
-        actionEdit = `<a class="action-btn" title="编辑文件" target="_blank" href="${url}?edit">${ICONS.edit}</a>`;
-      } else {
-        actionEdit = disabledAction(ICONS.edit, `无法编辑：${deniedReason(file, "edit")}`);
-      }
+      actionEdit = canEdit
+        ? `<a class="action-btn" title="编辑文件" target="_blank" href="${url}?edit">${ICONS.edit}</a>`
+        : disabledAction(ICONS.edit, `无法编辑：${deniedReason(file, "edit")}`);
     }
   }
   if (showDelete) {
-    if (file.allow_delete) {
-      actionDelete = `
-    <div onclick="deletePath(${index})" class="action-btn" id="deleteBtn${index}" title="删除">${ICONS.delete}</div>`;
-    } else {
-      actionDelete = disabledAction(ICONS.delete, `无法删除：${deniedReason(file, "delete")}`);
-    }
+    actionDelete = file.allow_delete
+      ? `<div onclick="deletePath(${index})" class="action-btn"${withIds ? ` id="deleteBtn${index}"` : ""} title="删除">${ICONS.delete}</div>`
+      : disabledAction(ICONS.delete, `无法删除：${deniedReason(file, "delete")}`);
   }
   if (!canEdit && !isDir) {
     actionView = `<a class="action-btn" title="查看文件" target="_blank" href="${url}?view">${ICONS.view}</a>`;
   }
-  let actionCell = `
-  <td class="cell-actions">
-    ${actionDownload}
-    ${actionView}
-    ${actionMove}
-    ${actionDelete}
-    ${actionEdit}
-  </td>`;
+  return { url, isDir, html: `${actionDownload}${actionView}${actionMove}${actionDelete}${actionEdit}` };
+}
 
-  let sizeDisplay = isDir ? formatDirSize(file.size) : formatFileSize(file.size).join(" ");
+function addPath(file, index, showMove, showDelete) {
+  const encodedName = encodedStr(file.name);
+  const category = getPathCategory(file);
+  const { url, isDir, html: actions } = buildActions(file, index, showMove, showDelete, true);
+  const sizeDisplay = isDir ? formatDirSize(file.size) : formatFileSize(file.size).join(" ");
 
   $pathsTableBody.insertAdjacentHTML("beforeend", `
-<tr id="addPath${index}">
+<tr id="addPath${index}" data-cat="${category}">
   <td class="path cell-icon">
     ${getPathSvg(file)}
   </td>
@@ -659,8 +688,22 @@ function addPath(file, index, showMove, showDelete) {
   </td>
   <td class="cell-mtime">${formatMtime(file.mtime)}</td>
   <td class="cell-size">${sizeDisplay}</td>
-  ${actionCell}
+  <td class="cell-actions">${actions}</td>
 </tr>`);
+
+  const $grid = document.querySelector(".file-grid");
+  if ($grid) {
+    const cardActions = buildActions(file, index, showMove, showDelete, false).html;
+    $grid.insertAdjacentHTML("beforeend", `
+<article class="file-card" id="addPathCard${index}" data-cat="${category}">
+  <div class="card-top">
+    <span class="card-icon">${getPathSvg(file)}</span>
+    <div class="card-actions">${cardActions}</div>
+  </div>
+  <a class="card-name" href="${url}" ${isDir ? "" : `target="_blank"`}>${encodedName}</a>
+  <div class="card-meta"><span>${sizeDisplay}</span><span>${formatMtime(file.mtime)}</span></div>
+</article>`);
+  }
 }
 
 function setupDropzone() {
@@ -859,6 +902,7 @@ async function deletePath(index) {
   if (!file) return;
   await doDeletePath(file.name, newUrl(file.name), () => {
     document.getElementById(`addPath${index}`)?.remove();
+document.getElementById(`addPathCard${index}`)?.remove();
     DATA.paths[index] = null;
     if (!DATA.paths.find(v => !!v)) {
       $pathsTable.classList.add("hidden");
@@ -1109,6 +1153,131 @@ function getFileIconType(name) {
     if (FILE_TYPE_EXTS[type].includes(ext)) return type;
   }
   return null;
+}
+
+const DOC_TYPES = ["word", "excel", "ppt", "pdf", "text"];
+
+function getPathCategory(file) {
+  if (file && file.path_type && file.path_type.endsWith("Dir")) return "dir";
+  const type = getFileIconType(file && file.name ? file.name : "");
+  if (!type) return "other";
+  return DOC_TYPES.includes(type) ? "doc" : type;
+}
+
+const FILTER_ITEMS = [
+  { key: "all", label: "全部文件" },
+  { key: "image", label: "图片" },
+  { key: "video", label: "视频" },
+  { key: "audio", label: "音频" },
+  { key: "doc", label: "文档" },
+  { key: "code", label: "代码" },
+  { key: "archive", label: "压缩包" },
+  { key: "other", label: "其他" },
+];
+
+const FILTER_ICONS = {
+  all: `<svg viewBox="0 0 16 16"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM9 2.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zM10.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zM2.5 10a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM9 10.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zM10.5 10a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/></svg>`,
+  image: `<svg viewBox="0 0 16 16"><path d="M2 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H2zm12 1a1 1 0 0 1 1 1v6.5l-2.5-2.5a1 1 0 0 0-1.4 0l-4 4-2.1-2.1a1 1 0 0 0-1.4 0L1 12.6V4a1 1 0 0 1 1-1h12zM5.5 7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>`,
+  video: `<svg viewBox="0 0 16 16"><path d="M2 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H2zm4.5 2.3a.5.5 0 0 1 .76-.04l3.5 2.7a.5.5 0 0 1 0 .78l-3.5 2.7A.5.5 0 0 1 6.5 11V5.5a.5.5 0 0 1 0-.2z"/></svg>`,
+  audio: `<svg viewBox="0 0 16 16"><path d="M13 1.5a.5.5 0 0 1 .5.5v9a2.5 2.5 0 1 1-1-2V4.1L6 5.53v6.57a2.5 2.5 0 1 1-1-2V4.5a.5.5 0 0 1 .4-.49l7-2a.5.5 0 0 1 .6.49z"/></svg>`,
+  doc: `<svg viewBox="0 0 16 16"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/><path d="M5 6.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/></svg>`,
+  code: `<svg viewBox="0 0 16 16"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/></svg>`,
+  archive: `<svg viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v1a.5.5 0 0 1-.5.5H14v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13V5h-.5a.5.5 0 0 1-.5-.5v-1zM2.5 3a.5.5 0 0 0-.5.5V4h12v-.5a.5.5 0 0 0-.5-.5h-11zM6 6.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H6z"/></svg>`,
+  other: `<svg viewBox="0 0 16 16"><path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>`,
+};
+
+function setupRail() {
+  const $tree = document.querySelector(".rail-tree");
+  const $filters = document.querySelector(".rail-filters");
+  const paths = DATA.paths || [];
+  const dirs = paths.filter(p => p.path_type.endsWith("Dir"));
+
+  if ($tree) {
+    const parts = [];
+    if (DATA.href !== "/") {
+      const parent = DATA.href.replace(/[^/]*\/?$/, "");
+      parts.push(`<a class="tree-item" href="${parent}">
+        <span class="tree-icon"><svg viewBox="0 0 16 16"><path d="M3.5 8a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5z"/></svg></span>
+        <span class="tree-label">上一级</span>
+      </a>`);
+    }
+    for (const dir of dirs) {
+      const url = newUrl(dir.name) + "/";
+      parts.push(`<a class="tree-item" href="${url}">
+        <span class="tree-icon">${getPathSvg(dir)}</span>
+        <span class="tree-label">${encodedStr(dir.name)}</span>
+      </a>`);
+    }
+    if (!parts.length) {
+      parts.push(`<p class="tree-empty">此目录下没有子文件夹</p>`);
+    }
+    $tree.innerHTML = parts.join("");
+  }
+
+  if ($filters) {
+    const files = paths.filter(p => !p.path_type.endsWith("Dir"));
+    const counts = {};
+    for (const file of files) {
+      const cat = getPathCategory(file);
+      counts[cat] = (counts[cat] || 0) + 1;
+    }
+    $filters.innerHTML = FILTER_ITEMS.map(item => {
+      const count = item.key === "all" ? paths.length : (counts[item.key] || 0);
+      return `<button type="button" class="filter-item${item.key === "all" ? " active" : ""}" data-filter="${item.key}">
+        <span class="filter-icon">${FILTER_ICONS[item.key]}</span>
+        <span class="filter-label">${item.label}</span>
+        <span class="filter-count">${count || ""}</span>
+      </button>`;
+    }).join("");
+    $filters.querySelectorAll(".filter-item").forEach(btn => {
+      btn.addEventListener("click", () => {
+        $filters.querySelectorAll(".filter-item").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        applyCategoryFilter(btn.dataset.filter, btn.querySelector(".filter-label").textContent);
+      });
+    });
+  }
+
+  updatePageMeta("全部文件", paths.length);
+}
+
+function applyCategoryFilter(filter, label) {
+  let visible = 0;
+  document.querySelectorAll(".paths-table tbody tr").forEach(el => {
+    const cat = el.dataset.cat;
+    const show = filter === "all" || cat === "dir" || cat === filter;
+    el.classList.toggle("hidden", !show);
+    if (show) visible++;
+  });
+  document.querySelectorAll(".file-grid .file-card").forEach(el => {
+    const cat = el.dataset.cat;
+    const show = filter === "all" || cat === "dir" || cat === filter;
+    el.classList.toggle("hidden", !show);
+  });
+  updatePageMeta(label, visible);
+  const hasAny = (DATA.paths || []).length > 0;
+  if (visible === 0 && hasAny) {
+    $emptyFolder.textContent = "该分类下暂无文件";
+    $emptyFolder.classList.remove("hidden");
+  } else {
+    $emptyFolder.classList.add("hidden");
+  }
+}
+
+function updatePageMeta(label, count) {
+  const $title = document.querySelector(".page-title");
+  const $meta = document.querySelector(".page-meta");
+  if ($title) $title.textContent = label;
+  if (!$meta) return;
+  const files = (DATA.paths || []).filter(p => !p.path_type.endsWith("Dir"));
+  const totalSize = files.reduce((sum, p) => sum + (p.size || 0), 0);
+  const parts = [];
+  if (count > 0) parts.push(`共 ${count} 项`);
+  if (totalSize > 0) {
+    const [value, unit] = formatFileSize(totalSize);
+    parts.push(`占用 ${value} ${unit}`);
+  }
+  $meta.textContent = parts.join(" · ");
 }
 
 function getPathSvg(file) {
