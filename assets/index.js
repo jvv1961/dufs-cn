@@ -220,7 +220,7 @@ class Uploader {
     $uploadersTable.insertAdjacentHTML("beforeend", `
   <tr id="upload${idx}" class="uploader">
     <td class="path cell-icon">
-      ${getPathSvg()}
+      ${getPathSvg({ name: this.name, path_type: "File" })}
     </td>
     <td class="path cell-name">
       <a href="${url}">${encodedName}</a>
@@ -351,7 +351,7 @@ class Uploader {
   }
 
   complete() {
-    this.$status.textContent = "✓";
+    this.$status.innerHTML = `<span class="status-ok">✓</span>`;
     this.$percent.textContent = formatPercent(100);
     this.$size.textContent = formatUploadSize(this.file.size, this.file.size);
     this.$speed.textContent = "";
@@ -362,7 +362,7 @@ class Uploader {
   }
 
   fail(reason = "") {
-    this.$status.innerHTML = `<span title="${reason}">✗</span><span class="retry-btn" id="retry${this.idx}" title="Retry">↻</span>`;
+    this.$status.innerHTML = `<span class="status-err" title="${reason}">✗</span><span class="retry-btn" id="retry${this.idx}" title="Retry">↻</span>`;
     this.$speed.textContent = "";
     this.$eta.textContent = "";
     failUploaders.set(this.idx, this);
@@ -631,7 +631,7 @@ function addPath(file, index, showMove, showDelete) {
   $pathsTableBody.insertAdjacentHTML("beforeend", `
 <tr id="addPath${index}">
   <td class="path cell-icon">
-    ${getPathSvg(file.path_type)}
+    ${getPathSvg(file)}
   </td>
   <td class="path cell-name">
     <a href="${url}" ${isDir ? "" : `target="_blank"`}>${encodedName}</a>
@@ -1055,16 +1055,57 @@ function extName(filename) {
   return filename.substring(dotIndex);
 }
 
-function getPathSvg(path_type) {
-  switch (path_type) {
+const FILE_TYPE_EXTS = {
+  image: [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico", ".tif", ".tiff", ".avif"],
+  video: [".mp4", ".mov", ".avi", ".wmv", ".flv", ".webm", ".mkv", ".m4v", ".mpg", ".mpeg"],
+  audio: [".mp3", ".ogg", ".wav", ".m4a", ".flac", ".aac", ".wma", ".opus"],
+  archive: [".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar", ".tgz", ".zst"],
+  code: [".js", ".mjs", ".ts", ".jsx", ".tsx", ".html", ".htm", ".css", ".scss", ".rs", ".py", ".go", ".java", ".c", ".h", ".cpp", ".hpp", ".cs", ".php", ".rb", ".swift", ".kt", ".sh", ".bash", ".ps1", ".bat", ".cmd", ".sql", ".vue", ".svelte", ".json", ".yaml", ".yml", ".toml", ".xml", ".lua", ".pl", ".r", ".dart"],
+  pdf: [".pdf"],
+  word: [".doc", ".docx", ".rtf", ".odt"],
+  excel: [".xls", ".xlsx", ".csv", ".ods"],
+  ppt: [".ppt", ".pptx", ".odp"],
+  text: [".txt", ".md", ".markdown", ".log", ".ini", ".cfg", ".conf"],
+};
+
+const FILE_TYPE_ICONS = {
+  image: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H2zm12 1a1 1 0 0 1 1 1v6.5l-2.5-2.5a1 1 0 0 0-1.4 0l-4 4-2.1-2.1a1 1 0 0 0-1.4 0L1 12.6V4a1 1 0 0 1 1-1h12zM5.5 7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>`,
+  video: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H2zm4.5 2.3a.5.5 0 0 1 .76-.04l3.5 2.7a.5.5 0 0 1 0 .78l-3.5 2.7A.5.5 0 0 1 6.5 11V5.5a.5.5 0 0 1 0-.2z"/></svg>`,
+  audio: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 1.5a.5.5 0 0 1 .5.5v9a2.5 2.5 0 1 1-1-2V4.1L6 5.53v6.57a2.5 2.5 0 1 1-1-2V4.5a.5.5 0 0 1 .4-.49l7-2a.5.5 0 0 1 .6.49z"/></svg>`,
+  archive: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v1a.5.5 0 0 1-.5.5H14v8a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13V5h-.5a.5.5 0 0 1-.5-.5v-1zM2.5 3a.5.5 0 0 0-.5.5V4h12v-.5a.5.5 0 0 0-.5-.5h-11zM6 6.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1H6z"/></svg>`,
+  code: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z"/></svg>`,
+  pdf: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/><path d="M4.6 11.2h.9c.5 0 .9-.35.9-.85s-.4-.85-.9-.85h-.9v1.7zm0 .5v1.3H4V10h1.5c.85 0 1.5.6 1.5 1.35S6.35 12.7 5.5 12.7h-.9zM8.4 10v3h.9c.95 0 1.7-.7 1.7-1.5s-.75-1.5-1.7-1.5h-.9zm.6.6h.3c.6 0 1.1.4 1.1.9s-.5.9-1.1.9H9v-1.8zM11.6 10h2v.55h-1.4v.75h1.3v.55h-1.3V13h-.6v-3z"/></svg>`,
+  word: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/><path d="M4.6 10l.94 3h.62l.72-2.3.73 2.3h.62L9.4 10h-.62l-.55 2.05-.68-2.05h-.5l-.68 2.05L5.8 10H4.6z" transform="translate(-0.4 0)"/></svg>`,
+  excel: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/><path d="M4.8 10l1.3 2-1.3 2h.7l.95-1.5.95 1.5h.7l-1.3-2 1.3-2h-.7l-.95 1.5L5.5 10h-.7z"/></svg>`,
+  ppt: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/><path d="M5.4 10h1.4a1.5 1.5 0 1 1 0 3h-.8v1h-.6v-4zm.6.6v1.8h.8a.9.9 0 1 0 0-1.8H6z"/></svg>`,
+  text: `<svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/><path d="M5 6.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/></svg>`,
+};
+
+function getFileIconType(name) {
+  const ext = extName(name).toLowerCase();
+  if (!ext) return null;
+  for (const type in FILE_TYPE_EXTS) {
+    if (FILE_TYPE_EXTS[type].includes(ext)) return type;
+  }
+  return null;
+}
+
+function getPathSvg(file) {
+  if (!file) return `<span class="file-icon">${ICONS.file}</span>`;
+  const pathType = typeof file === "string" ? file : file.path_type;
+  switch (pathType) {
     case "Dir":
-      return ICONS.dir;
+      return `<span class="file-icon fi-dir">${ICONS.dir}</span>`;
     case "SymlinkFile":
-      return ICONS.symlinkFile;
+      return `<span class="file-icon">${ICONS.symlinkFile}</span>`;
     case "SymlinkDir":
-      return ICONS.symlinkDir;
-    default:
-      return ICONS.file;
+      return `<span class="file-icon fi-dir">${ICONS.symlinkDir}</span>`;
+    default: {
+      const type = typeof file === "object" && file ? getFileIconType(file.name || "") : null;
+      const icon = type ? FILE_TYPE_ICONS[type] : ICONS.file;
+      const cls = type ? `file-icon fi-${type}` : "file-icon";
+      return `<span class="${cls}">${icon}</span>`;
+    }
   }
 }
 
