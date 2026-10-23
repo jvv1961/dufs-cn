@@ -528,14 +528,14 @@ function renderPathsTableBody() {
           .reduce((sum, p) => sum + (p.size || 0), 0);
         const chips = [];
         if (dirCount) {
-          chips.push(`<span class="stat"><span class="stat-folder">${ICONS.dir}</span>${dirCount} 个文件夹</span>`);
+          chips.push(`<div class="stat"><span class="stat-icon stat-folder">${ICONS.dir}</span><span class="stat-body"><span class="stat-label">文件夹</span><span class="stat-value">${dirCount}</span></span></div>`);
         }
         if (fileCount) {
-          chips.push(`<span class="stat"><span class="stat-file">${ICONS.file}</span>${fileCount} 个文件</span>`);
+          chips.push(`<div class="stat"><span class="stat-icon stat-file">${ICONS.file}</span><span class="stat-body"><span class="stat-label">文件</span><span class="stat-value">${fileCount}</span></span></div>`);
         }
         if (totalSize > 0) {
           const [value, unit] = formatFileSize(totalSize);
-          chips.push(`<span class="stat"><span class="stat-size"><svg viewBox="0 0 16 16"><path d="M8 2.5c2.5 0 4.5 1 4.5 2.25S10.5 7 8 7 3.5 6 3.5 4.75 5.5 2.5 8 2.5zM3.5 6.4c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 9 9.9 9.4 8 9.4s-3.6-.4-4.5-1.1V6.4zm0 3c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 12 9.9 12.4 8 12.4s-3.6-.4-4.5-1.1V9.4z"/></svg></span>${value} ${unit}</span>`);
+          chips.push(`<div class="stat"><span class="stat-icon stat-size"><svg viewBox="0 0 16 16"><path d="M8 2.5c2.5 0 4.5 1 4.5 2.25S10.5 7 8 7 3.5 6 3.5 4.75 5.5 2.5 8 2.5zM3.5 6.4c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 9 9.9 9.4 8 9.4s-3.6-.4-4.5-1.1V6.4zm0 3c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 12 9.9 12.4 8 12.4s-3.6-.4-4.5-1.1V9.4z"/></svg></span><span class="stat-body"><span class="stat-label">总大小</span><span class="stat-value">${value}<small>${unit}</small></span></span></div>`);
         }
         $listSummary.innerHTML = chips.join("");
         $listSummary.classList.remove("hidden");
