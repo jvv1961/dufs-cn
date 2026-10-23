@@ -519,6 +519,27 @@ function renderPathsTableBody() {
     const len = DATA.paths.length;
     if (len > 0) {
       $pathsTable.classList.remove("hidden");
+      const $listSummary = document.querySelector(".list-summary");
+      if ($listSummary) {
+        const dirCount = DATA.paths.filter(p => p.path_type.endsWith("Dir")).length;
+        const fileCount = len - dirCount;
+        const totalSize = DATA.paths
+          .filter(p => !p.path_type.endsWith("Dir"))
+          .reduce((sum, p) => sum + (p.size || 0), 0);
+        const chips = [];
+        if (dirCount) {
+          chips.push(`<span class="stat"><span class="stat-folder">${ICONS.dir}</span>${dirCount} folder${dirCount > 1 ? "s" : ""}</span>`);
+        }
+        if (fileCount) {
+          chips.push(`<span class="stat"><span class="stat-file">${ICONS.file}</span>${fileCount} file${fileCount > 1 ? "s" : ""}</span>`);
+        }
+        if (totalSize > 0) {
+          const [value, unit] = formatFileSize(totalSize);
+          chips.push(`<span class="stat"><span class="stat-size"><svg viewBox="0 0 16 16"><path d="M8 2.5c2.5 0 4.5 1 4.5 2.25S10.5 7 8 7 3.5 6 3.5 4.75 5.5 2.5 8 2.5zM3.5 6.4c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 9 9.9 9.4 8 9.4s-3.6-.4-4.5-1.1V6.4zm0 3c.9.7 2.6 1.1 4.5 1.1s3.6-.4 4.5-1.1v1.85C11.6 12 9.9 12.4 8 12.4s-3.6-.4-4.5-1.1V9.4z"/></svg></span>${value} ${unit}</span>`);
+        }
+        $listSummary.innerHTML = chips.join("");
+        $listSummary.classList.remove("hidden");
+      }
     }
     // Show an action column when it is available for the current directory or
     // at least one entry. Rows without permission render the action disabled.
