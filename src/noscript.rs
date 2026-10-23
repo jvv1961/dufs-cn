@@ -18,7 +18,7 @@ pub fn detect_noscript(user_agent: &str) -> bool {
 pub fn generate_noscript_html(data: &IndexData) -> Result<String> {
     let mut html = String::new();
 
-    let title = format!("Index of {}", escape_str_pcdata(&data.href));
+    let title = format!("目录索引：{}", escape_str_pcdata(&data.href));
 
     html.push_str("<html>\n");
     html.push_str("<head>\n");
@@ -78,7 +78,7 @@ fn format_mtime(mtime: u64) -> Option<String> {
 
 fn format_size(size: u64, path_type: PathType) -> String {
     if path_type.is_dir() {
-        let unit = if size == 1 { "item" } else { "items" };
+        let unit = "项";
         let num = match size >= MAX_SUBPATHS_COUNT {
             true => format!(">{}", MAX_SUBPATHS_COUNT - 1),
             false => size.to_string(),

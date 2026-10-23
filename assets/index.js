@@ -121,12 +121,12 @@ const beforeUnloadHandler = (event) => {
 async function initialize() {
   const $indexData = document.getElementById('index-data');
   if (!$indexData) {
-    alert("No data");
+    alert("数据加载失败");
     return;
   }
 
   DATA = JSON.parse(decodeBase64($indexData.innerHTML));
-  DIR_EMPTY_NOTE = PARAMS.q ? 'No results' : DATA.dir_exists ? 'Empty folder' : 'Folder will be created when a file is uploaded';
+  DIR_EMPTY_NOTE = PARAMS.q ? '未找到匹配结果' : DATA.dir_exists ? '空文件夹' : '上传文件后将自动创建此文件夹';
 
   await ready();
 }
@@ -155,17 +155,17 @@ async function ready() {
   addBreadcrumb(DATA.href, DATA.uri_prefix);
 
   if (DATA.kind === "Index") {
-    document.title = `Index of ${DATA.href} - Dufs`;
+    document.title = `目录索引：${DATA.href} - Dufs`;
     document.querySelector(".index-page").classList.remove("hidden");
 
     await setupIndexPage();
   } else if (DATA.kind === "Edit") {
-    document.title = `Edit ${DATA.href} - Dufs`;
+    document.title = `编辑：${DATA.href} - Dufs`;
     document.querySelector(".editor-page").classList.remove("hidden");
 
     await setupEditorPage();
   } else if (DATA.kind === "View") {
-    document.title = `View ${DATA.href} - Dufs`;
+    document.title = `查看：${DATA.href} - Dufs`;
     document.querySelector(".editor-page").classList.remove("hidden");
 
     await setupEditorPage();
@@ -275,11 +275,11 @@ class Uploader {
           if (ajax.status != 0) {
             const code = ajax.getResponseHeader("x-dufs-error-code");
             if (code === "upload-disabled") {
-              this.fail("upload is disabled");
+              this.fail("上传功能已禁用");
             } else if (code === "delete-disabled") {
-              this.fail("overwriting is disabled");
+              this.fail("不允许覆盖已有文件");
             } else if (code === "readonly-descendant") {
-              this.fail("directory contains read-only entries");
+              this.fail("目录包含只读内容");
             } else {
               this.fail(`${ajax.status} ${ajax.statusText}`);
             }
@@ -362,7 +362,7 @@ class Uploader {
   }
 
   fail(reason = "") {
-    this.$status.innerHTML = `<span class="status-err" title="${reason}">✗</span><span class="retry-btn" id="retry${this.idx}" title="Retry">↻</span>`;
+    this.$status.innerHTML = `<span class="status-err" title="${reason}">✗</span><span class="retry-btn" id="retry${this.idx}" title="重试">↻</span>`;
     this.$speed.textContent = "";
     this.$eta.textContent = "";
     failUploaders.set(this.idx, this);
@@ -424,7 +424,7 @@ function addBreadcrumb(href, uri_prefix) {
     }
     const encodedName = encodedStr(name);
     if (i === 0) {
-      $breadcrumb.insertAdjacentHTML("beforeend", `<a href="${path}" title="Root"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5z"/></svg></a>`);
+      $breadcrumb.insertAdjacentHTML("beforeend", `<a href="${path}" title="根目录"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5z"/></svg></a>`);
     } else if (i === len - 1) {
       $breadcrumb.insertAdjacentHTML("beforeend", `<b>${encodedName}</b>`);
     } else {
@@ -440,7 +440,7 @@ async function setupIndexPage() {
   if (DATA.allow_archive) {
     const $download = document.querySelector(".download");
     $download.href = baseUrl() + "?zip";
-    $download.title = "Download folder as a .zip file";
+    $download.title = "下载文件夹（ZIP 压缩包）";
     $download.classList.add("dlwt");
     $download.classList.remove("hidden");
   }
@@ -476,17 +476,17 @@ function renderPathsTableHead() {
     {
       name: "name",
       props: `colspan="2"`,
-      text: "Name",
+      text: "名称",
     },
     {
       name: "mtime",
       props: ``,
-      text: "Last Modified",
+      text: "修改时间",
     },
     {
       name: "size",
       props: ``,
-      text: "Size",
+      text: "大小",
     }
   ];
   $pathsTableHead.insertAdjacentHTML("beforeend", `
@@ -506,7 +506,7 @@ function renderPathsTableHead() {
     const icon = `<span>${svg}</span>`
     return `<th class="cell-${item.name}" ${item.props}><a href="?${qs}">${item.text}${icon}</a></th>`
   }).join("\n")}
-      <th class="cell-actions">Actions</th>
+      <th class="cell-actions">操作</th>
     </tr>
   `);
 }
@@ -528,10 +528,10 @@ function renderPathsTableBody() {
           .reduce((sum, p) => sum + (p.size || 0), 0);
         const chips = [];
         if (dirCount) {
-          chips.push(`<span class="stat"><span class="stat-folder">${ICONS.dir}</span>${dirCount} folder${dirCount > 1 ? "s" : ""}</span>`);
+          chips.push(`<span class="stat"><span class="stat-folder">${ICONS.dir}</span>${dirCount} 个文件夹</span>`);
         }
         if (fileCount) {
-          chips.push(`<span class="stat"><span class="stat-file">${ICONS.file}</span>${fileCount} file${fileCount > 1 ? "s" : ""}</span>`);
+          chips.push(`<span class="stat"><span class="stat-file">${ICONS.file}</span>${fileCount} 个文件</span>`);
         }
         if (totalSize > 0) {
           const [value, unit] = formatFileSize(totalSize);
@@ -573,12 +573,12 @@ function disabledAction(icon, title) {
  */
 function deniedReason(file, action) {
   if (file.readonly_descendant) {
-    return "the directory contains read-only entries";
+    return "目录包含只读内容";
   }
   if (action === "edit") {
-    return "the file is read-only";
+    return "文件为只读";
   }
-  return "the entry is read-only";
+  return "条目为只读";
 }
 
 /**
@@ -602,41 +602,41 @@ function addPath(file, index, showMove, showDelete) {
     if (DATA.allow_archive) {
       actionDownload = `
       <div class="action-btn">
-        <a class="dlwt" href="${url}?zip" title="Download folder as a .zip file" download>${ICONS.download}</a>
+        <a class="dlwt" href="${url}?zip" title="下载文件夹（ZIP 压缩包）" download>${ICONS.download}</a>
       </div>`;
     }
   } else {
     actionDownload = `
     <div class="action-btn" >
-      <a class="dlwt" href="${url}" title="Download file" download>${ICONS.download}</a>
+      <a class="dlwt" href="${url}" title="下载文件" download>${ICONS.download}</a>
     </div>`;
   }
   const canMove = file.allow_upload && file.allow_delete;
   const canEdit = !isDir && canMove;
   if (showMove) {
     if (canMove) {
-      actionMove = `<div onclick="movePath(${index})" class="action-btn" id="moveBtn${index}" title="Move & Rename">${ICONS.move}</div>`;
+      actionMove = `<div onclick="movePath(${index})" class="action-btn" id="moveBtn${index}" title="移动 / 重命名">${ICONS.move}</div>`;
     } else {
-      actionMove = disabledAction(ICONS.move, `Cannot move: ${deniedReason(file, "move")}`);
+      actionMove = disabledAction(ICONS.move, `无法移动：${deniedReason(file, "move")}`);
     }
     if (!isDir) {
       if (canEdit) {
-        actionEdit = `<a class="action-btn" title="Edit file" target="_blank" href="${url}?edit">${ICONS.edit}</a>`;
+        actionEdit = `<a class="action-btn" title="编辑文件" target="_blank" href="${url}?edit">${ICONS.edit}</a>`;
       } else {
-        actionEdit = disabledAction(ICONS.edit, `Cannot edit: ${deniedReason(file, "edit")}`);
+        actionEdit = disabledAction(ICONS.edit, `无法编辑：${deniedReason(file, "edit")}`);
       }
     }
   }
   if (showDelete) {
     if (file.allow_delete) {
       actionDelete = `
-    <div onclick="deletePath(${index})" class="action-btn" id="deleteBtn${index}" title="Delete">${ICONS.delete}</div>`;
+    <div onclick="deletePath(${index})" class="action-btn" id="deleteBtn${index}" title="删除">${ICONS.delete}</div>`;
     } else {
-      actionDelete = disabledAction(ICONS.delete, `Cannot delete: ${deniedReason(file, "delete")}`);
+      actionDelete = disabledAction(ICONS.delete, `无法删除：${deniedReason(file, "delete")}`);
     }
   }
   if (!canEdit && !isDir) {
-    actionView = `<a class="action-btn" title="View file" target="_blank" href="${url}?view">${ICONS.view}</a>`;
+    actionView = `<a class="action-btn" title="查看文件" target="_blank" href="${url}?view">${ICONS.view}</a>`;
   }
   let actionCell = `
   <td class="cell-actions">
@@ -713,7 +713,7 @@ function setupDownloadWithToken() {
         const tokengenUrl = new URL(originalHref);
         tokengenUrl.searchParams.set("tokengen", "");
         const res = await fetch(tokengenUrl);
-        if (!res.ok) throw new Error("Failed to fetch token");
+        if (!res.ok) throw new Error("获取下载令牌失败");
         const token = await res.text();
         const downloadUrl = new URL(originalHref);
         downloadUrl.searchParams.set("token", token);
@@ -724,7 +724,7 @@ function setupDownloadWithToken() {
         tempA.click();
         document.body.removeChild(tempA);
       } catch (err) {
-        alert(`Failed to download, ${err.message}`);
+        alert(`下载失败：${err.message}`);
       }
     });
   });
@@ -762,7 +762,7 @@ function setupNewFolder() {
   const $newFolder = document.querySelector(".new-folder");
   $newFolder.classList.remove("hidden");
   $newFolder.addEventListener("click", () => {
-    const name = prompt("Enter folder name");
+    const name = prompt("请输入文件夹名称");
     if (name) createFolder(name);
   });
 }
@@ -771,7 +771,7 @@ function setupNewFile() {
   const $newFile = document.querySelector(".new-file");
   $newFile.classList.remove("hidden");
   $newFile.addEventListener("click", () => {
-    const name = prompt("Enter file name");
+    const name = prompt("请输入文件名");
     if (name) createFile(name);
   });
 }
@@ -825,7 +825,7 @@ async function setupEditorPage() {
       $notEditable.insertAdjacentHTML("afterend", `<iframe src="${url}" sandbox width="100%" height="${window.innerHeight - 100}px"></iframe>`);
     } else {
       $notEditable.classList.remove("hidden");
-      $notEditable.textContent = "Cannot edit because file is too large or binary.";
+      $notEditable.textContent = "文件过大或为二进制格式，无法编辑。";
     }
     return;
   }
@@ -845,7 +845,7 @@ async function setupEditorPage() {
       $editor.value = decoder.decode(dataView);
     }
   } catch (err) {
-    alert(`Failed to get file, ${err.message}`);
+    alert(`获取文件失败：${err.message}`);
   }
 }
 
@@ -869,7 +869,7 @@ async function deletePath(index) {
 }
 
 async function doDeletePath(name, url, cb) {
-  if (!confirm(`Delete \`${name}\`?`)) return;
+  if (!confirm(`确定删除「${name}」吗？`)) return;
   try {
     await checkAuth();
     const res = await fetch(url, {
@@ -879,11 +879,11 @@ async function doDeletePath(name, url, cb) {
     cb();
   } catch (err) {
     if (err.code === "readonly-descendant") {
-      alert(`Cannot delete \`${name}\`: the directory contains read-only entries`);
+      alert(`无法删除「${name}」：目录包含只读内容`);
     } else if (err.code === "delete-disabled") {
-      alert(`Cannot delete \`${name}\`: delete is disabled`);
+      alert(`无法删除「${name}」：删除功能已禁用`);
     } else {
-      alert(`Cannot delete \`${name}\`, ${err.message}`);
+      alert(`无法删除「${name}」：${err.message}`);
     }
   }
 }
@@ -910,7 +910,7 @@ async function doMovePath(fileUrl) {
 
   const filePath = decodeURIComponent(fileUrlObj.pathname.slice(prefix.length));
 
-  let newPath = prompt("Enter new path", filePath);
+  let newPath = prompt("请输入新路径", filePath);
   if (!newPath) return;
   if (!newPath.startsWith("/")) newPath = "/" + newPath;
   if (filePath === newPath) return;
@@ -922,7 +922,7 @@ async function doMovePath(fileUrl) {
       method: "HEAD",
     });
     if (res1.status === 200) {
-      if (!confirm("Override existing file?")) {
+      if (!confirm("目标已存在，是否覆盖？")) {
         return;
       }
     }
@@ -936,11 +936,11 @@ async function doMovePath(fileUrl) {
     return newFileUrl;
   } catch (err) {
     if (err.code === "readonly-descendant") {
-      alert(`Cannot move \`${filePath}\`: the directory contains read-only entries`);
+      alert(`无法移动「${filePath}」：目录包含只读内容`);
     } else if (err.code === "upload-disabled" || err.code === "delete-disabled") {
-      alert(`Cannot move \`${filePath}\`: moving is disabled`);
+      alert(`无法移动「${filePath}」：移动功能已禁用`);
     } else {
-      alert(`Cannot move \`${filePath}\` to \`${newPath}\`, ${err.message}`);
+      alert(`无法将「${filePath}」移动到「${newPath}」：${err.message}`);
     }
   }
 }
@@ -957,7 +957,7 @@ async function saveChange() {
     });
     location.reload();
   } catch (err) {
-    alert(`Failed to save file, ${err.message}`);
+    alert(`保存文件失败：${err.message}`);
   }
 }
 
@@ -999,11 +999,11 @@ async function createFolder(name) {
     location.href = url;
   } catch (err) {
     if (err.code === "already-exists") {
-      alert(`Cannot create folder \`${name}\`: it already exists`);
+      alert(`无法创建文件夹「${name}」：已存在同名文件夹`);
     } else if (err.code === "upload-disabled") {
-      alert(`Cannot create folder \`${name}\`: upload is disabled`);
+      alert(`无法创建文件夹「${name}」：上传功能已禁用`);
     } else {
-      alert(`Cannot create folder \`${name}\`, ${err.message}`);
+      alert(`无法创建文件夹「${name}」：${err.message}`);
     }
   }
 }
@@ -1020,11 +1020,11 @@ async function createFile(name) {
     location.href = url + "?edit";
   } catch (err) {
     if (err.code === "upload-disabled") {
-      alert(`Cannot create file \`${name}\`: upload is disabled`);
+      alert(`无法创建文件「${name}」：上传功能已禁用`);
     } else if (err.code === "delete-disabled") {
-      alert(`Cannot create file \`${name}\`: delete is disabled`);
+      alert(`无法创建文件「${name}」：删除功能已禁用`);
     } else {
-      alert(`Cannot create file \`${name}\`, ${err.message}`);
+      alert(`无法创建文件「${name}」：${err.message}`);
     }
   }
 }
@@ -1146,9 +1146,8 @@ function padZero(value, size) {
 }
 
 function formatDirSize(size) {
-  const unit = size === 1 ? "item" : "items";
   const num = size >= MAX_SUBPATHS_COUNT ? `>${MAX_SUBPATHS_COUNT - 1}` : `${size}`;
-  return ` ${num} ${unit}`;
+  return ` ${num} 项`;
 }
 
 function formatFileSize(size, unit) {
@@ -1188,7 +1187,7 @@ function encodedStr(rawStr) {
 
 async function assertResOK(res) {
   if (!(res.status >= 200 && res.status < 300)) {
-    const err = new Error(await res.text() || `Invalid status ${res.status}`);
+    const err = new Error(await res.text() || `请求失败（状态码 ${res.status}）`);
     err.code = res.headers.get("x-dufs-error-code");
     throw err;
   }

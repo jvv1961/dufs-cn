@@ -84,20 +84,20 @@ impl DufsErrorCode {
     pub const fn message(self) -> &'static str {
         use DufsErrorCode::*;
         match self {
-            InvalidPath => "Invalid Path",
-            InvalidUploadOffset => "Invalid X-Update-Range Header",
-            InvalidDepth => "Invalid depth: only 0 and 1 are allowed.",
-            InvalidDestination => "Invalid Destination",
-            Forbidden => "Forbidden",
-            ReadonlyDescendant => "Forbidden: the target directory contains read-only entries",
-            UploadDisabled => "Forbidden: upload is disabled",
-            DeleteDisabled => "Forbidden: delete is disabled",
-            HashDisabled => "Forbidden: hash is disabled",
-            IsADirectory => "Forbidden: target is a directory",
-            InternalError => "Forbidden: failed to access the directory",
-            ArchiveDisabled => "Not Found",
+            InvalidPath => "无效路径",
+            InvalidUploadOffset => "无效的 X-Update-Range 请求头",
+            InvalidDepth => "无效的 Depth：仅允许 0 或 1。",
+            InvalidDestination => "无效的 Destination",
+            Forbidden => "禁止访问",
+            ReadonlyDescendant => "禁止访问：目标目录包含只读内容",
+            UploadDisabled => "禁止访问：上传功能已禁用",
+            DeleteDisabled => "禁止访问：删除功能已禁用",
+            HashDisabled => "禁止访问：哈希功能已禁用",
+            IsADirectory => "禁止访问：目标是一个目录",
+            InternalError => "禁止访问：无法访问该目录",
+            ArchiveDisabled => "未找到",
             MissingUploadOffset => "",
-            AlreadyExists => "Already exists",
+            AlreadyExists => "已存在",
             MethodNotAllowed | PreconditionFailed | DestinationExists => "",
         }
     }

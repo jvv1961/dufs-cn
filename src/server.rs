@@ -2040,7 +2040,7 @@ fn extract_cache_headers(meta: &Metadata) -> Option<(ETag, LastModified)> {
 
 fn status_not_found(res: &mut Response) {
     *res.status_mut() = StatusCode::NOT_FOUND;
-    *res.body_mut() = body_full("Not Found");
+    *res.body_mut() = body_full("未找到");
 }
 
 fn status_no_content(res: &mut Response) {
